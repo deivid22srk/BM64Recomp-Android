@@ -1,5 +1,5 @@
 diff --git a/plume_vulkan.cpp b/plume_vulkan.cpp
-index 2800022..ba8dccc 100644
+index 2800022..cd0875b 100644
 --- a/plume_vulkan.cpp
 +++ b/plume_vulkan.cpp
 @@ -10,6 +10,11 @@
@@ -14,7 +14,24 @@ index 2800022..ba8dccc 100644
  #include <algorithm>
  #include <cmath>
  #include <climits>
-@@ -2162,6 +2167,32 @@ namespace plume {
+@@ -2111,7 +2116,7 @@ namespace plume {
+         VulkanInterface *renderInterface = commandQueue->device->renderInterface;
+         res = vkCreateAndroidSurfaceKHR(renderInterface->instance, &surfaceCreateInfo, nullptr, &surface);
+         if (res != VK_SUCCESS) {
+-            fprintf(stderr, "vkCreateAndroidSurfaceKHR failed with error code 0x%X.\n", res);
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "vkCreateAndroidSurfaceKHR failed: 0x%X", res);
+             return;
+         }
+ #   elif defined(__linux__)
+@@ -2155,13 +2160,39 @@ namespace plume {
+         }
+ 
+         if (!presentSupported) {
+-            fprintf(stderr, "Command queue does not support present.\n");
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "command queue does not support present");
+             return;
+         }
+ 
          VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
          vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities);
  
@@ -47,6 +64,33 @@ index 2800022..ba8dccc 100644
          // Pick an alpha compositing mode
          if (surfaceCapabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) {
              pickedAlphaFlag = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+@@ -2170,7 +2201,7 @@ namespace plume {
+             pickedAlphaFlag = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+         }
+         else {
+-            fprintf(stderr, "No known supported alpha compositing mode\n");
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "no known supported alpha compositing mode");
+             return;
+         }
+ 
+@@ -2205,7 +2236,7 @@ namespace plume {
+         }
+ 
+         if (compatibleSurfaceFormats.empty()) {
+-            fprintf(stderr, "No compatible surface formats were found.\n");
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "no compatible surface formats were found");
+             return;
+         }
+ 
+@@ -2232,7 +2263,7 @@ namespace plume {
+             pickedAlphaFlag = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+         }
+         else {
+-            fprintf(stderr, "No supported alpha compositing mode was found.\n");
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "no supported alpha compositing mode was found");
+             return;
+         }
+ 
 @@ -2324,22 +2355,82 @@ namespace plume {
          VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
          vkGetPhysicalDeviceSurfaceCapabilitiesKHR(commandQueue->device->physicalDevice, surface, &surfaceCapabilities);
