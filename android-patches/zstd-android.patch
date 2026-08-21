@@ -1,17 +1,32 @@
 diff --git a/lib/dictBuilder/cover.c b/lib/dictBuilder/cover.c
-index 386a4d5..0c4c911 100644
+index 386a4d5..e48eacb 100644
 --- a/lib/dictBuilder/cover.c
 +++ b/lib/dictBuilder/cover.c
-@@ -324,7 +324,12 @@ static int COVER_strict_cmp8(const void *lp, const void *rp) {
+@@ -323,8 +323,27 @@ static int COVER_strict_cmp8(const void *lp, const void *rp) {
+  * Hopefully when C11 become the norm, we will be able
   * to clean it up.
   */
++#if defined(__ANDROID__)
++/* Bionic does not provide qsort_r(). Emulate it with a context thunk. */
++static int (*g_android_qsort_cmp)(const void *, const void *, void *);
++static void *g_android_qsort_arg;
++static int android_qsort_r_thunk(const void *lp, const void *rp) {
++  return g_android_qsort_cmp(lp, rp, g_android_qsort_arg);
++}
++static void android_qsort_r(void *base, size_t nmemb, size_t size,
++                            int (*compar)(const void *, const void *, void *),
++                            void *arg) {
++  g_android_qsort_cmp = compar;
++  g_android_qsort_arg = arg;
++  qsort(base, nmemb, size, android_qsort_r_thunk);
++}
++#endif
  static void stableSort(COVER_ctx_t *ctx) {
 -#if defined(__APPLE__)
 +#if defined(__ANDROID__)
-+    /* Bionic does not provide qsort_r(). Use the C90 fallback. */
-+    g_coverCtx = ctx;
-+    qsort(ctx->suffix, ctx->suffixSize, sizeof(U32),
-+          (ctx->d <= 8 ? &COVER_strict_cmp8 : &COVER_strict_cmp));
++    android_qsort_r(ctx->suffix, ctx->suffixSize, sizeof(U32),
++            (ctx->d <= 8 ? &COVER_strict_cmp8 : &COVER_strict_cmp),
++            ctx);
 +#elif defined(__APPLE__)
      qsort_r(ctx->suffix, ctx->suffixSize, sizeof(U32),
              ctx,
