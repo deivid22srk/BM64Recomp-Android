@@ -1,8 +1,19 @@
 diff --git a/plume_vulkan.cpp b/plume_vulkan.cpp
-index 2800022..519d486 100644
+index 2800022..0f63372 100644
 --- a/plume_vulkan.cpp
 +++ b/plume_vulkan.cpp
-@@ -2329,17 +2329,49 @@ namespace plume {
+@@ -10,6 +10,10 @@
+ 
+ #include "plume_vulkan.h"
+ 
++#ifdef __ANDROID__
++#include <android/log.h>
++#endif
++
+ #include <algorithm>
+ #include <cmath>
+ #include <climits>
+@@ -2329,17 +2333,49 @@ namespace plume {
          createInfo.minImageCount = desc.textureCount;
          createInfo.imageFormat = pickedSurfaceFormat.format;
          createInfo.imageColorSpace = pickedSurfaceFormat.colorSpace;
@@ -38,13 +49,13 @@ index 2800022..519d486 100644
 +        // swapchain we are about to create.
 +        {
 +            const VkSwapchainCreateInfoKHR& ci = createInfo;
-+            fprintf(stderr, "PLUME swapchain create: fmt=%d cs=%d ext=%ux%u layers=%u usage=0x%X sharing=%d preTransform=%d alpha=%d mode=%d minImages=%u old=%p\n",
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "swapchain create: fmt=%d cs=%d ext=%ux%u layers=%u usage=0x%X sharing=%d preTransform=%d alpha=%d mode=%d minImages=%u old=%p\n",
 +                (int)ci.imageFormat, (int)ci.imageColorSpace, ci.imageExtent.width, ci.imageExtent.height,
 +                ci.imageArrayLayers, ci.imageUsage, (int)ci.imageSharingMode, (int)ci.preTransform,
 +                (int)ci.compositeAlpha, (int)ci.presentMode, ci.minImageCount, (void*)ci.oldSwapchain);
 +            VkSurfaceCapabilitiesKHR caps = {};
 +            vkGetPhysicalDeviceSurfaceCapabilitiesKHR(commandQueue->device->physicalDevice, surface, &caps);
-+            fprintf(stderr, "PLUME surface caps: minImages=%u maxImages=%u curExtent=%ux%u minExt=%ux%u maxExt=%ux%u curTransform=%d supportedTransforms=%X supportedUsage=%X\n",
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "surface caps: minImages=%u maxImages=%u curExtent=%ux%u minExt=%ux%u maxExt=%ux%u curTransform=%d supportedTransforms=%X supportedUsage=%X\n",
 +                caps.minImageCount, caps.maxImageCount, caps.currentExtent.width, caps.currentExtent.height,
 +                caps.minImageExtent.width, caps.minImageExtent.height, caps.maxImageExtent.width, caps.maxImageExtent.height,
 +                (int)caps.currentTransform, caps.supportedTransforms, caps.supportedUsageFlags);
@@ -54,18 +65,18 @@ index 2800022..519d486 100644
          VkResult res = vkCreateSwapchainKHR(commandQueue->device->vk, &createInfo, nullptr, &vk);
          if (res != VK_SUCCESS) {
              fprintf(stderr, "vkCreateSwapchainKHR failed with error code 0x%X.\n", res);
-@@ -4048,6 +4080,17 @@ namespace plume {
+@@ -4048,6 +4084,17 @@ namespace plume {
              fprintf(stderr, "vkCreateDevice failed with error code 0x%X.\n", res);
              return;
          }
 +#ifdef __ANDROID__
 +        {
-+            fprintf(stderr, "PLUME device created with %u extensions:", uint32_t(enabledExtensions.size()));
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "device created with %u extensions:", uint32_t(enabledExtensions.size()));
 +            for (const char* ext : enabledExtensions) {
 +                fprintf(stderr, " %s", ext);
 +            }
 +            fprintf(stderr, "\n");
-+            fprintf(stderr, "PLUME apiVersion=0x%X driverVersion=0x%X name=%s\n",
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "apiVersion=0x%X driverVersion=0x%X name=%s\n",
 +                physicalDeviceProperties.apiVersion, physicalDeviceProperties.driverVersion, physicalDeviceProperties.deviceName);
 +        }
 +#endif
