@@ -122,18 +122,24 @@ index 2fb01e5..3b892b0 100644
  add_subdirectory(src/tools/texture_hasher)
  add_subdirectory(src/tools/texture_packer)
 diff --git a/src/common/rt64_user_paths.cpp b/src/common/rt64_user_paths.cpp
-index f38d8eb..472f832 100644
+index f38d8eb..b197c8b 100644
 --- a/src/common/rt64_user_paths.cpp
 +++ b/src/common/rt64_user_paths.cpp
-@@ -32,7 +32,7 @@ namespace RT64 {
+@@ -32,6 +32,14 @@ namespace RT64 {
          }
  
          CoTaskMemFree(knownPath);
--#   elif defined(__linux__) || defined(__APPLE__)
-+#   elif defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__)
++#   elif defined(__ANDROID__)
++        // On Android, HOME does not point at a writable directory for the app.
++        // Use SDL's app-internal storage directory instead.
++#       include <SDL.h>
++        const char* internalPath = SDL_AndroidGetInternalStoragePath();
++        if (internalPath != nullptr) {
++            resultPath = std::filesystem::path{internalPath} / std::string(".rt64");
++        }
+ #   elif defined(__linux__) || defined(__APPLE__)
          const char *homeDir = getenv("HOME");
          if (homeDir == nullptr) {
- #       if defined(__linux__)
 diff --git a/src/contrib/json/json.hpp b/src/contrib/json/json.hpp
 index e821c79..edb48e8 100644
 --- a/src/contrib/json/json.hpp
