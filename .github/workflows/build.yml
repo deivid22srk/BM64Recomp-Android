@@ -21,7 +21,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Apply RT64 Android patch
+      - name: Apply RT64 and zstd Android patches
         run: |
           git apply --directory=lib/rt64 android-patches/rt64-android.patch
           git apply --directory=lib/rt64/src/contrib/zstd android-patches/zstd-android.patch
@@ -52,7 +52,7 @@ jobs:
           echo "$(md5sum bm64.decomp.us.z64)"
           rm -rf rom-repo
 
-      - name: Build N64Recomp & RSPRecomp
+      - name: Build N64Recomp & RSPRecomp (host tools)
         run: |
           git clone https://github.com/Mr-Wiseguy/N64Recomp.git N64RecompSource
           cd N64RecompSource
@@ -70,13 +70,12 @@ jobs:
           ./RSPRecomp aspMain.toml
           make -C patches CC=clang LD=ld.lld
           ./N64Recomp patches.toml
-          # Pre-generate patches_bin.c with a host-built file_to_c (the APK build
-          # cross-compiles file_to_c for Android, so it cannot be run there).
+          # Pre-generate patches_bin.c with a host-built file_to_c (the native
+          # build cross-compiles file_to_c for Android, so it cannot be run there).
           g++ -O2 lib/rt64/src/tools/file_to_c/file_to_c.cpp -o file_to_c_host
           ./file_to_c_host patches/patches.bin mm_patches_bin RecompiledPatches/patches_bin.c RecompiledPatches/patches_bin.h
           # Ensure the generated files are strictly newer than their inputs,
-          # otherwise ninja considers them stale and tries to regenerate them
-          # with the cross-compiled (unusable) tool.
+          # otherwise ninja considers them stale.
           touch RecompiledPatches/patches_bin.c RecompiledPatches/patches_bin.h
 
       - name: Fetch Android build libraries (SDL2, FreeType)
@@ -88,6 +87,28 @@ jobs:
         run: |
           # ALooper_pollAll is marked unavailable in recent NDKs.
           sed -i 's/ALooper_pollAll(/ALooper_pollOnce(/' lib/SDL/src/sensor/android/SDL_androidsensor.c
+
+      - name: Build native libraries (CMake + NDK)
+        run: |
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          NDK_DIR="$(ls -d ${ANDROID_HOME}/ndk/* | sort -V | tail -1)"
+          echo "Using NDK at ${NDK_DIR}"
+          cmake -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="${NDK_DIR}/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-26 \
+            -DANDROID_STL=c++_static \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -S . -B build-android
+          cmake --build build-android --target BM64Recompiled -j $(nproc)
+
+      - name: Collect native libraries for packaging
+        run: |
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          find build-android -name "*.so" -exec cp -v {} app/src/main/jniLibs/arm64-v8a/ \;
+          ls -la app/src/main/jniLibs/arm64-v8a/
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4

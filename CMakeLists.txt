@@ -182,6 +182,8 @@ add_custom_command(OUTPUT
 # Main executable
 if (ANDROID)
     add_library(BM64Recompiled SHARED)
+    # SDLActivity loads the "main" library, so name it libmain.so.
+    set_target_properties(BM64Recompiled PROPERTIES OUTPUT_NAME "main")
 else()
     add_executable(BM64Recompiled)
 endif()

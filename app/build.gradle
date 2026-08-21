@@ -5,7 +5,6 @@ plugins {
 android {
     namespace 'com.deivid22srk.bm64recomp'
     compileSdk 34
-    ndkVersion '27.1.12297006'
 
     defaultConfig {
         applicationId 'com.deivid22srk.bm64recomp'
@@ -16,25 +15,6 @@ android {
 
         ndk {
             abiFilters 'arm64-v8a'
-        }
-
-        externalNativeBuild {
-            cmake {
-                arguments '-DANDROID_STL=c++_static',
-                          '-DCMAKE_BUILD_TYPE=Release',
-                          '-DCMAKE_POLICY_VERSION_MINIMUM=3.5',
-                          '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache',
-                          '-DCMAKE_C_COMPILER_LAUNCHER=ccache'
-                cppFlags '-std=c++20'
-                targets 'BM64Recompiled'
-            }
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path file('../CMakeLists.txt')
-            version '3.22.1'
         }
     }
 
