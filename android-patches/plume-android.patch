@@ -1,5 +1,5 @@
 diff --git a/plume_vulkan.cpp b/plume_vulkan.cpp
-index 2800022..2e401a6 100644
+index 2800022..fe98b5b 100644
 --- a/plume_vulkan.cpp
 +++ b/plume_vulkan.cpp
 @@ -10,6 +10,10 @@
@@ -13,17 +13,34 @@ index 2800022..2e401a6 100644
  #include <algorithm>
  #include <cmath>
  #include <climits>
-@@ -2324,22 +2328,64 @@ namespace plume {
+@@ -2324,22 +2328,81 @@ namespace plume {
          VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
          vkGetPhysicalDeviceSurfaceCapabilitiesKHR(commandQueue->device->physicalDevice, surface, &surfaceCapabilities);
  
 +#ifdef __ANDROID__
-+        // An all-zero capability struct means the surface is not valid for this
-+        // device (e.g. the native window was torn down). Bail out before the
-+        // driver gets a chance to crash on invalid parameters.
++        // Android can transiently report empty capabilities right after the
++        // native window has been (re)created or resized. Wait for the surface
++        // to become valid instead of feeding invalid parameters to the driver.
 +        if (surfaceCapabilities.minImageCount == 0 || surfaceCapabilities.maxImageCount == 0) {
-+            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "resize: surface capabilities are empty; deferring swap chain creation");
-+            return false;
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "resize: surface capabilities are empty; waiting for a valid surface");
++            constexpr int MaxAttempts = 200; // ~10 seconds at 50 ms per attempt.
++            for (int attempt = 0; attempt < MaxAttempts; ++attempt) {
++                struct timespec ts = {};
++                ts.tv_sec = 0;
++                ts.tv_nsec = 50 * 1000 * 1000;
++                nanosleep(&ts, nullptr);
++
++                surfaceCapabilities = {};
++                vkGetPhysicalDeviceSurfaceCapabilitiesKHR(commandQueue->device->physicalDevice, surface, &surfaceCapabilities);
++                if (surfaceCapabilities.minImageCount != 0 && surfaceCapabilities.maxImageCount != 0 && surfaceCapabilities.currentExtent.width != 0 && surfaceCapabilities.currentExtent.height != 0) {
++                    __android_log_print(ANDROID_LOG_ERROR, "PLUME", "resize: surface recovered after %d attempts", attempt + 1);
++                    break;
++                }
++                if (attempt == MaxAttempts - 1) {
++                    __android_log_print(ANDROID_LOG_ERROR, "PLUME", "resize: surface never became valid");
++                    return false;
++                }
++            }
 +        }
 +#endif
 +
@@ -80,7 +97,7 @@ index 2800022..2e401a6 100644
          VkResult res = vkCreateSwapchainKHR(commandQueue->device->vk, &createInfo, nullptr, &vk);
          if (res != VK_SUCCESS) {
              fprintf(stderr, "vkCreateSwapchainKHR failed with error code 0x%X.\n", res);
-@@ -4048,6 +4094,17 @@ namespace plume {
+@@ -4048,6 +4111,17 @@ namespace plume {
              fprintf(stderr, "vkCreateDevice failed with error code 0x%X.\n", res);
              return;
          }
