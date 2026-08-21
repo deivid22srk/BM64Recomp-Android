@@ -91,6 +91,11 @@ jobs:
       - name: Build native libraries (CMake + NDK)
         run: |
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          # Host file_to_c used by rt64's shader embedding steps (the
+          # cross-compiled one cannot run on the build machine).
+          mkdir -p bin-host
+          g++ -O2 lib/rt64/src/tools/file_to_c/file_to_c.cpp -o bin-host/file_to_c
+          export PATH="$PWD/bin-host:$PATH"
           NDK_DIR="$(ls -d ${ANDROID_HOME}/ndk/* | sort -V | tail -1)"
           echo "Using NDK at ${NDK_DIR}"
           cmake -G Ninja \
@@ -99,6 +104,7 @@ jobs:
             -DANDROID_PLATFORM=android-26 \
             -DANDROID_STL=c++_static \
             -DCMAKE_BUILD_TYPE=Release \
+            -DFILE_TO_C_EXECUTABLE="$PWD/bin-host/file_to_c" \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -S . -B build-android
