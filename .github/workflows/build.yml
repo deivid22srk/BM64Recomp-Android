@@ -25,7 +25,8 @@ jobs:
         run: |
           git apply --directory=lib/rt64 android-patches/rt64-android.patch
           git apply --directory=lib/rt64/src/contrib/zstd android-patches/zstd-android.patch
-          echo "RT64 and zstd patches applied"
+          git apply --directory=lib/rt64/src/contrib/plume android-patches/plume-android.patch
+          echo "RT64, zstd and plume patches applied"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

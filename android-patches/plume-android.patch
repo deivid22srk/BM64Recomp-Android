@@ -1,0 +1,27 @@
+diff --git a/plume_vulkan.cpp b/plume_vulkan.cpp
+index 2800022..a6d6872 100644
+--- a/plume_vulkan.cpp
++++ b/plume_vulkan.cpp
+@@ -2329,12 +2329,20 @@ namespace plume {
+         createInfo.minImageCount = desc.textureCount;
+         createInfo.imageFormat = pickedSurfaceFormat.format;
+         createInfo.imageColorSpace = pickedSurfaceFormat.colorSpace;
+-        createInfo.imageExtent.width = width;
+-        createInfo.imageExtent.height = height;
++        // Clamp the extent to the surface bounds; some mobile drivers crash on
++        // out-of-bounds extents.
++        createInfo.imageExtent.width = std::clamp(width, surfaceCapabilities.minImageExtent.width, std::max(surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width));
++        createInfo.imageExtent.height = std::clamp(height, surfaceCapabilities.minImageExtent.height, std::max(surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height));
+         createInfo.imageArrayLayers = 1;
+         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
++#ifdef __ANDROID__
++        // Rotated devices report a current transform that differs from identity;
++        // drivers may misbehave when the requested transform does not match it.
++        createInfo.preTransform = surfaceCapabilities.currentTransform;
++#else
+         createInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
++#endif
+         createInfo.compositeAlpha = pickedAlphaFlag;
+         createInfo.presentMode = requiredPresentMode;
+         createInfo.clipped = VK_TRUE;
