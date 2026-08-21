@@ -1,8 +1,8 @@
 diff --git a/plume_vulkan.cpp b/plume_vulkan.cpp
-index 2800022..a6d6872 100644
+index 2800022..519d486 100644
 --- a/plume_vulkan.cpp
 +++ b/plume_vulkan.cpp
-@@ -2329,12 +2329,20 @@ namespace plume {
+@@ -2329,17 +2329,49 @@ namespace plume {
          createInfo.minImageCount = desc.textureCount;
          createInfo.imageFormat = pickedSurfaceFormat.format;
          createInfo.imageColorSpace = pickedSurfaceFormat.colorSpace;
@@ -13,7 +13,13 @@ index 2800022..a6d6872 100644
 +        createInfo.imageExtent.width = std::clamp(width, surfaceCapabilities.minImageExtent.width, std::max(surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width));
 +        createInfo.imageExtent.height = std::clamp(height, surfaceCapabilities.minImageExtent.height, std::max(surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height));
          createInfo.imageArrayLayers = 1;
++#ifdef __ANDROID__
++        // SAMPLED_BIT is not needed for presentation and some mobile drivers
++        // misbehave with it enabled on swapchain images.
++        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
++#else
          createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
++#endif
          createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 +#ifdef __ANDROID__
 +        // Rotated devices report a current transform that differs from identity;
@@ -25,3 +31,44 @@ index 2800022..a6d6872 100644
          createInfo.compositeAlpha = pickedAlphaFlag;
          createInfo.presentMode = requiredPresentMode;
          createInfo.clipped = VK_TRUE;
+         createInfo.oldSwapchain = vk;
+ 
++#ifdef __ANDROID__
++        // Diagnostics for mobile driver issues: dump everything about the
++        // swapchain we are about to create.
++        {
++            const VkSwapchainCreateInfoKHR& ci = createInfo;
++            fprintf(stderr, "PLUME swapchain create: fmt=%d cs=%d ext=%ux%u layers=%u usage=0x%X sharing=%d preTransform=%d alpha=%d mode=%d minImages=%u old=%p\n",
++                (int)ci.imageFormat, (int)ci.imageColorSpace, ci.imageExtent.width, ci.imageExtent.height,
++                ci.imageArrayLayers, ci.imageUsage, (int)ci.imageSharingMode, (int)ci.preTransform,
++                (int)ci.compositeAlpha, (int)ci.presentMode, ci.minImageCount, (void*)ci.oldSwapchain);
++            VkSurfaceCapabilitiesKHR caps = {};
++            vkGetPhysicalDeviceSurfaceCapabilitiesKHR(commandQueue->device->physicalDevice, surface, &caps);
++            fprintf(stderr, "PLUME surface caps: minImages=%u maxImages=%u curExtent=%ux%u minExt=%ux%u maxExt=%ux%u curTransform=%d supportedTransforms=%X supportedUsage=%X\n",
++                caps.minImageCount, caps.maxImageCount, caps.currentExtent.width, caps.currentExtent.height,
++                caps.minImageExtent.width, caps.minImageExtent.height, caps.maxImageExtent.width, caps.maxImageExtent.height,
++                (int)caps.currentTransform, caps.supportedTransforms, caps.supportedUsageFlags);
++        }
++#endif
++
+         VkResult res = vkCreateSwapchainKHR(commandQueue->device->vk, &createInfo, nullptr, &vk);
+         if (res != VK_SUCCESS) {
+             fprintf(stderr, "vkCreateSwapchainKHR failed with error code 0x%X.\n", res);
+@@ -4048,6 +4080,17 @@ namespace plume {
+             fprintf(stderr, "vkCreateDevice failed with error code 0x%X.\n", res);
+             return;
+         }
++#ifdef __ANDROID__
++        {
++            fprintf(stderr, "PLUME device created with %u extensions:", uint32_t(enabledExtensions.size()));
++            for (const char* ext : enabledExtensions) {
++                fprintf(stderr, " %s", ext);
++            }
++            fprintf(stderr, "\n");
++            fprintf(stderr, "PLUME apiVersion=0x%X driverVersion=0x%X name=%s\n",
++                physicalDeviceProperties.apiVersion, physicalDeviceProperties.driverVersion, physicalDeviceProperties.deviceName);
++        }
++#endif
+ 
+         for (uint32_t i = 0; i < queueFamilyCount; i++) {
+             for (uint32_t j = 0; j < queueFamilies[i].queues.size(); j++) {
