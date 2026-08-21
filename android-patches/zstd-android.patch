@@ -1,0 +1,18 @@
+diff --git a/lib/dictBuilder/cover.c b/lib/dictBuilder/cover.c
+index 386a4d5..0c4c911 100644
+--- a/lib/dictBuilder/cover.c
++++ b/lib/dictBuilder/cover.c
+@@ -324,7 +324,12 @@ static int COVER_strict_cmp8(const void *lp, const void *rp) {
+  * to clean it up.
+  */
+ static void stableSort(COVER_ctx_t *ctx) {
+-#if defined(__APPLE__)
++#if defined(__ANDROID__)
++    /* Bionic does not provide qsort_r(). Use the C90 fallback. */
++    g_coverCtx = ctx;
++    qsort(ctx->suffix, ctx->suffixSize, sizeof(U32),
++          (ctx->d <= 8 ? &COVER_strict_cmp8 : &COVER_strict_cmp));
++#elif defined(__APPLE__)
+     qsort_r(ctx->suffix, ctx->suffixSize, sizeof(U32),
+             ctx,
+             (ctx->d <= 8 ? &COVER_strict_cmp8 : &COVER_strict_cmp));
