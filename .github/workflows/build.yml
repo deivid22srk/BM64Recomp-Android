@@ -114,8 +114,11 @@ jobs:
         run: |
           NDK_DIR="$(ls -d ${ANDROID_HOME}/ndk/* | sort -V | tail -1)"
           STRIP="${NDK_DIR}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+          NM="${NDK_DIR}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
           mkdir -p app/src/main/jniLibs/arm64-v8a
           find build-android -name "*.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \;
+          # Sanity check: libmain.so must export the SDL_main entry point.
+          ${NM} -D --defined-only app/src/main/jniLibs/arm64-v8a/libmain.so | grep -E " T SDL_main$"
           find app/src/main/jniLibs -name "*.so" -exec ${STRIP} --strip-unneeded {} \;
           ls -la app/src/main/jniLibs/arm64-v8a/
 

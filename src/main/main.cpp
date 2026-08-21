@@ -12,7 +12,7 @@
 
 #include "ultramodern/ultra64.h"
 #include "ultramodern/ultramodern.hpp"
-#if defined(_WIN32) || defined(__ANDROID__)
+#ifdef _WIN32
 #define SDL_MAIN_HANDLED
 #endif
 #ifdef _WIN32
@@ -27,12 +27,6 @@
 #undef ControlMask
 #undef Success
 #undef Always
-#endif
-
-#if defined(__ANDROID__)
-// Redefine main to SDL_main for the Android JNI entry point.
-#undef SDL_MAIN_HANDLED
-#include "SDL_main.h"
 #endif
 
 #include "recomp_ui.h"
