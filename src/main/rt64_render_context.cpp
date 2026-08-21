@@ -14,6 +14,7 @@
 #ifdef __ANDROID__
 #include <SDL.h>
 #include <SDL_syswm.h>
+#include <android/native_window.h>
 // Undefine x11 macros that get included by SDL_syswm.h.
 #undef None
 #undef Status
@@ -228,6 +229,9 @@ zelda64::renderer::RT64Context::RT64Context(uint8_t* rdram, ultramodern::rendere
         SDL_VERSION(&wmInfo.version);
         if (SDL_GetWindowWMInfo(window_handle, &wmInfo) && wmInfo.subsystem == SDL_SYSWM_ANDROID) {
             appCore.window = wmInfo.info.android.window;
+            // Keep the native window alive even if SDL tears down and recreates
+            // its surface while the activity settles (orientation changes, etc).
+            ANativeWindow_acquire((ANativeWindow*)appCore.window);
         }
         else {
             fprintf(stderr, "Failed to retrieve the native window from SDL\n");

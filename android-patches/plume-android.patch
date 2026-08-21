@@ -1,5 +1,5 @@
 diff --git a/plume_vulkan.cpp b/plume_vulkan.cpp
-index 2800022..0f63372 100644
+index 2800022..2e401a6 100644
 --- a/plume_vulkan.cpp
 +++ b/plume_vulkan.cpp
 @@ -10,6 +10,10 @@
@@ -13,7 +13,22 @@ index 2800022..0f63372 100644
  #include <algorithm>
  #include <cmath>
  #include <climits>
-@@ -2329,17 +2333,49 @@ namespace plume {
+@@ -2324,22 +2328,64 @@ namespace plume {
+         VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
+         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(commandQueue->device->physicalDevice, surface, &surfaceCapabilities);
+ 
++#ifdef __ANDROID__
++        // An all-zero capability struct means the surface is not valid for this
++        // device (e.g. the native window was torn down). Bail out before the
++        // driver gets a chance to crash on invalid parameters.
++        if (surfaceCapabilities.minImageCount == 0 || surfaceCapabilities.maxImageCount == 0) {
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "resize: surface capabilities are empty; deferring swap chain creation");
++            return false;
++        }
++#endif
++
+         createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+         createInfo.surface = surface;
          createInfo.minImageCount = desc.textureCount;
          createInfo.imageFormat = pickedSurfaceFormat.format;
          createInfo.imageColorSpace = pickedSurfaceFormat.colorSpace;
@@ -65,7 +80,7 @@ index 2800022..0f63372 100644
          VkResult res = vkCreateSwapchainKHR(commandQueue->device->vk, &createInfo, nullptr, &vk);
          if (res != VK_SUCCESS) {
              fprintf(stderr, "vkCreateSwapchainKHR failed with error code 0x%X.\n", res);
-@@ -4048,6 +4084,17 @@ namespace plume {
+@@ -4048,6 +4094,17 @@ namespace plume {
              fprintf(stderr, "vkCreateDevice failed with error code 0x%X.\n", res);
              return;
          }
