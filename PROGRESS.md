@@ -67,3 +67,35 @@ como app nativo (Gradle + NDK + CMake), com CI no GitHub Actions gerando o APK.
 1. `cd ~/2/BM64Recomp` — working tree já tem codegen feito (RecompiledFuncs/, rsp/, RecompiledPatches/).
 2. Ferramentas em `~/2/N64RecompSource/cmake-build/`.
 3. Este arquivo lista o resto das tarefas.
+
+## Sessão 2 — 2026-08-21 (noite): build verde + iterações de crash
+
+### Arquitetura final do CI (por sugestão do usuário)
+- Etapa dedicada "Build native libraries" invoca CMake+Ninja com toolchain do NDK
+  diretamente (-DCMAKE_TOOLCHAIN_FILE=..., ANDROID_PLATFORM=android-28).
+- Gradle NÃO compila nativo; só empacota app/src/main/jniLibs/arm64-v8a/*.so
+  (libmain.so ~27MB stripada + libSDL2.so) + assets/game/**.
+- Verificação no CI de que libmain.so exporta `T SDL_main` antes do empacotamento.
+
+### Correções aplicadas após teste real no dispositivo (moto g34 5G, SDK 35)
+1. `SDL_main` não era exportado → remover SDL_MAIN_HANDLED no Android
+   (o include guard impedia redefinir main→SDL_main). ✔ confirmado nos símbolos.
+2. Assets faltavam no APK → stage de `assets/` para `app/src/main/assets/game`
+   + extração Java mapeia APK game/X → filesDir/assets/X.
+3. Crash Gfx Thread: RT64 criava "/data/.rt64" (HOME não é gravável no Android)
+   → patch detectDataPath usa SDL_AndroidGetInternalStoragePath()/.rt64.
+4. zstd cover.c: qsort_r inexistente no bionic → shim com thunk GNU-style.
+5. nlohmann/json vendored: char_traits<unsigned char> ausente no libc++ →
+   especialização injetada sob __ANDROID__.
+6. file_to_c/DXC host: FILE_TO_C_EXECUTABLE parametrizado; DXC x86_64 forçado.
+7. X11: ramos `__linux__` excluídos no Android (__linux__ É definido lá!).
+
+### Pendências conhecidas
+- hidapi do SDL registra receiver sem flag (SDK 31+): USB HID gamepads ficam
+  fora; Bluetooth via GameController API funciona normalmente.
+- APK assinado com keystore efêmera gerada no CI (reinstalação exige desinstalar).
+
+## Como retomar
+1. `cd ~/2/BM64Recomp` — remote `port` aponta para o repo do port.
+2. Codegen local já validado; ferramentas em `~/2/N64RecompSource/cmake-build`.
+3. CI: `.github/workflows/build.yml`; secret ROM_PAT configurado.
