@@ -45,6 +45,21 @@ set(RT64_STATIC TRUE)
 set(RT64_SDL_WINDOW_VULKAN TRUE)
 add_compile_definitions(HLSL_CPU)
 
+if (ANDROID)
+    # Build SDL2 from source for Android (cloned by CI into lib/SDL).
+    if (EXISTS ${CMAKE_SOURCE_DIR}/lib/SDL/CMakeLists.txt)
+        set(SDL_SHARED ON CACHE BOOL "" FORCE)
+        set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+        add_subdirectory(${CMAKE_SOURCE_DIR}/lib/SDL ${CMAKE_BINARY_DIR}/sdl2 EXCLUDE_FROM_ALL)
+        # Expose headers under the SDL2/ prefix used by the sources.
+        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/sdl-include)
+        file(CREATE_LINK ${CMAKE_SOURCE_DIR}/lib/SDL/include ${CMAKE_BINARY_DIR}/sdl-include/SDL2 SYMBOLIC)
+        include_directories(${CMAKE_BINARY_DIR}/sdl-include)
+    else()
+        message(FATAL_ERROR "lib/SDL is required for the Android build")
+    endif()
+endif()
+
 if (RECOMP_FLATPAK)
     add_compile_definitions(RECOMP_FLATPAK)
 endif()
@@ -58,6 +73,22 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/lib/lunasvg)
 # set(BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS_SAVED}")
 SET(RMLUI_SVG_PLUGIN ON CACHE BOOL "" FORCE)
 SET(RMLUI_TESTS_ENABLED OFF CACHE BOOL "" FORCE)
+
+if (ANDROID)
+    # Build FreeType from source for Android (cloned by CI into lib/freetype).
+    if (EXISTS ${CMAKE_SOURCE_DIR}/lib/freetype/CMakeLists.txt)
+        set(FT_DISABLE_ZLIB TRUE CACHE BOOL "" FORCE)
+        set(FT_DISABLE_BZIP2 TRUE CACHE BOOL "" FORCE)
+        set(FT_DISABLE_PNG TRUE CACHE BOOL "" FORCE)
+        set(FT_DISABLE_HARFBUZZ TRUE CACHE BOOL "" FORCE)
+        set(FT_DISABLE_BROTLI TRUE CACHE BOOL "" FORCE)
+        add_subdirectory(${CMAKE_SOURCE_DIR}/lib/freetype ${CMAKE_BINARY_DIR}/freetype EXCLUDE_FROM_ALL)
+        add_library(Freetype::Freetype ALIAS freetype)
+    else()
+        message(FATAL_ERROR "lib/freetype is required for the Android build")
+    endif()
+endif()
+
 add_subdirectory(${CMAKE_SOURCE_DIR}/lib/RmlUi)
 target_compile_definitions(rmlui_core PRIVATE LUNASVG_BUILD_STATIC)
 
@@ -145,7 +176,11 @@ add_custom_command(OUTPUT
 )
 
 # Main executable
-add_executable(BM64Recompiled)
+if (ANDROID)
+    add_library(BM64Recompiled SHARED)
+else()
+    add_executable(BM64Recompiled)
+endif()
 
 set (SOURCES
     ${CMAKE_SOURCE_DIR}/src/main/main.cpp
@@ -207,6 +242,15 @@ set (SOURCES
 
 if (APPLE)
     list(APPEND SOURCES ${CMAKE_SOURCE_DIR}/src/main/support_apple.mm)
+endif()
+
+if (ANDROID)
+    list(APPEND SOURCES
+        ${CMAKE_SOURCE_DIR}/src/main/android_bridge.cpp
+    )
+
+    add_library(nfd_stub STATIC ${CMAKE_SOURCE_DIR}/src/main/nfd_stub_android.c)
+    target_include_directories(nfd_stub PRIVATE ${CMAKE_SOURCE_DIR}/lib/rt64/src/contrib/nativefiledialog-extended/src/include)
 endif()
 
 target_include_directories(BM64Recompiled PRIVATE
@@ -311,7 +355,7 @@ if (APPLE)
     include(${CMAKE_SOURCE_DIR}/.github/macos/apple_bundle.cmake)
 endif()
 
-if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND NOT ANDROID)
     find_package(SDL2 REQUIRED)
     find_package(X11 REQUIRED)
 
@@ -353,6 +397,21 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     target_link_libraries(BM64Recompiled PRIVATE "-latomic -static-libstdc++" ${CMAKE_DL_LIBS} Threads::Threads)
 endif()
 
+if (ANDROID)
+    set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+    set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+    find_package(Threads REQUIRED)
+
+    target_include_directories(BM64Recompiled PRIVATE ${SDL_INCLUDE_DIR})
+    target_link_libraries(BM64Recompiled PRIVATE
+        SDL2::SDL2
+        Freetype::Freetype
+        Threads::Threads
+        log
+        android
+    )
+endif()
+
 target_link_libraries(BM64Recompiled PRIVATE
     PatchesLib
     RecompiledFuncs
@@ -361,9 +420,14 @@ target_link_libraries(BM64Recompiled PRIVATE
     rt64
     RmlUi::Core
     RmlUi::Debugger
-    nfd
     lunasvg
 )
+
+if (NOT ANDROID)
+    target_link_libraries(BM64Recompiled PRIVATE nfd)
+else()
+    target_link_libraries(BM64Recompiled PRIVATE nfd_stub)
+endif()
 
 # TODO fix the rt64 CMake script so that this doesn't need to be duplicated here
 # For DXC

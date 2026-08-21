@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.deivid22srk.bm64recomp'
+    compileSdk 34
+    ndkVersion '27.1.12297006'
+
+    defaultConfig {
+        applicationId 'com.deivid22srk.bm64recomp'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments '-DANDROID_STL=c++_static',
+                          '-DCMAKE_BUILD_TYPE=Release',
+                          '-DCMAKE_POLICY_VERSION_MINIMUM=3.5',
+                          '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache',
+                          '-DCMAKE_C_COMPILER_LAUNCHER=ccache'
+                cppFlags '-std=c++20'
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('../../CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+}

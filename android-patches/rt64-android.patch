@@ -1,0 +1,113 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 2fb01e5..5c93934 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -68,7 +68,9 @@ set(ZSTD_BUILD_SHARED OFF)
+ 
+ add_subdirectory(src/tools/file_to_c)
+ add_subdirectory(src/contrib/re-spirv)
+-add_subdirectory(src/contrib/nativefiledialog-extended)
++if (NOT ANDROID)
++    add_subdirectory(src/contrib/nativefiledialog-extended)
++endif()
+ add_subdirectory(src/contrib/zstd/build/cmake)
+ 
+ if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
+@@ -287,7 +289,9 @@ if (WIN32)
+     set(SDL2_LIBRARIES "SDL2" "SDL2main")
+     link_directories("${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/lib/x64")
+ else()
+-    find_package(SDL2 REQUIRED)
++    if (NOT ANDROID)
++        find_package(SDL2 REQUIRED)
++    endif()
+ endif()
+ 
+ message(STATUS "${SDL2_INCLUDE_DIRS} ${SDL2_LIBRARIES}")
+@@ -438,10 +442,18 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
+ 
+ # Add common libraries.
+ target_link_libraries(rt64 re-spirv)
+-target_link_libraries(rt64 nfd)
++if (NOT ANDROID)
++    target_link_libraries(rt64 nfd)
++endif()
+ target_link_libraries(rt64 libzstd_static)
+ target_link_libraries(rt64 plume)
+ 
++# On Android, link the SDL2 target built by the parent project so that its
++# include directories and shared library dependency propagate to consumers.
++if (ANDROID)
++    target_link_libraries(rt64 SDL2::SDL2)
++endif()
++
+ # Add tools.
+ add_subdirectory(src/tools/texture_hasher)
+ add_subdirectory(src/tools/texture_packer)
+diff --git a/src/common/rt64_user_paths.cpp b/src/common/rt64_user_paths.cpp
+index f38d8eb..472f832 100644
+--- a/src/common/rt64_user_paths.cpp
++++ b/src/common/rt64_user_paths.cpp
+@@ -32,7 +32,7 @@ namespace RT64 {
+         }
+ 
+         CoTaskMemFree(knownPath);
+-#   elif defined(__linux__) || defined(__APPLE__)
++#   elif defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__)
+         const char *homeDir = getenv("HOME");
+         if (homeDir == nullptr) {
+ #       if defined(__linux__)
+diff --git a/src/hle/rt64_application_window.cpp b/src/hle/rt64_application_window.cpp
+index 86ae197..50e712d 100755
+--- a/src/hle/rt64_application_window.cpp
++++ b/src/hle/rt64_application_window.cpp
+@@ -104,7 +104,21 @@ namespace RT64 {
+         bounds.width = rect.right - rect.left;
+         bounds.height = rect.bottom - rect.top;
+ #   elif defined(__ANDROID__)
+-        static_assert(false && "Android unimplemented");
++        if (SDL_VideoInit(nullptr) != 0) {
++            printf("Failed to init SDL2 video: %s\n", SDL_GetError());
++            assert(false && "Failed to init SDL2 video");
++            return;
++        }
++        SDL_DisplayMode dm;
++        if (SDL_GetDesktopDisplayMode(0, &dm) != 0) {
++            printf("Failed to get SDL2 desktop display mode: %s\n", SDL_GetError());
++            assert(false && "Failed to get SDL2 desktop display mode");
++            return;
++        }
++        bounds.left = 0;
++        bounds.top = 0;
++        bounds.width = dm.w;
++        bounds.height = dm.h;
+ #   elif defined(__linux__) || defined(__APPLE__)
+         if (SDL_VideoInit(nullptr) != 0) {
+             printf("Failed to init SDL2 video: %s\n", SDL_GetError());
+@@ -148,7 +162,10 @@ namespace RT64 {
+ #   elif defined(RT64_SDL_WINDOW_VULKAN)
+         windowHandle = sdlWindow;
+ #   elif defined(__ANDROID__)
+-        static_assert(false && "Android unimplemented");
++        // The runtime always creates its own window on Android, so this path is
++        // only reached from standalone tools. Convert the SDL window to a native
++        // window handle for completeness.
++        windowHandle = wmInfo.info.android.window;
+ #   elif defined(__linux__)
+         windowHandle.display = wmInfo.info.x11.display;
+         windowHandle.window = wmInfo.info.x11.window;
+@@ -287,6 +304,14 @@ namespace RT64 {
+             return;
+         }
+ 
++        refreshRate = displayMode.refresh_rate;
++#   elif defined(__ANDROID__)
++        SDL_DisplayMode displayMode = {};
++        if (SDL_GetDesktopDisplayMode(0, &displayMode) != 0) {
++            fprintf(stderr, "SDL_GetDesktopDisplayMode failed. Error: %s.\n", SDL_GetError());
++            return;
++        }
++
+         refreshRate = displayMode.refresh_rate;
+ #   elif defined(__linux__)
+         // Sourced from: https://stackoverflow.com/a/66865623

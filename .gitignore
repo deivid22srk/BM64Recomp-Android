@@ -73,3 +73,15 @@ gamecontrollerdb.txt
 
 # RSP Microcode recompiled output
 aspMain.cpp
+# Android build
+.gradle/
+build-*/
+app/build/
+local.properties
+lib/SDL/
+lib/freetype/
+*.apk
+*.jks
+*.keystore
+patches/*.o
+patches/patches.bin

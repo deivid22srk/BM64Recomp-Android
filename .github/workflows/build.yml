@@ -1,0 +1,103 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Apply RT64 Android patch
+        run: |
+          git apply android-patches/rt64-android.patch
+          echo "RT64 patch applied"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build lld clang ccache
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: bm64-android-ccache
+          restore-keys: |
+            bm64-android-ccache
+
+      - name: Fetch decompressed ROM from private assets repo
+        run: |
+          git clone --depth 1 "https://deivid22srk:${{ secrets.ROM_PAT }}@github.com/deivid22srk/BM64Recomp-private-assets.git" rom-repo
+          cp rom-repo/bm64.decomp.us.z64 ./bm64.decomp.us.z64
+          echo "$(md5sum bm64.decomp.us.z64)"
+          rm -rf rom-repo
+
+      - name: Build N64Recomp & RSPRecomp
+        run: |
+          git clone https://github.com/Mr-Wiseguy/N64Recomp.git N64RecompSource
+          cd N64RecompSource
+          git checkout 98bf104b1b5ed83126af8bcab0cc964782617dbf
+          git submodule update --init --recursive
+          cmake -DCMAKE_BUILD_TYPE=Release -G Ninja -S . -B cmake-build
+          cmake --build cmake-build --config Release --target N64RecompCLI -j $(nproc)
+          cmake --build cmake-build --config Release --target RSPRecomp -j $(nproc)
+          cp cmake-build/N64Recomp cmake-build/RSPRecomp ..
+
+      - name: Run recompilation codegen
+        run: |
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          ./N64Recomp bm64.us.toml
+          ./RSPRecomp aspMain.toml
+          make -C patches CC=clang LD=ld.lld
+          ./N64Recomp patches.toml
+
+      - name: Fetch Android build libraries (SDL2, FreeType)
+        run: |
+          git clone --depth 1 --branch release-2.30.3 https://github.com/libsdl-org/SDL.git lib/SDL
+          git clone --depth 1 --branch VER-2-13-3 https://github.com/freetype/freetype.git lib/freetype
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build APK
+        run: gradle -p . assembleRelease --no-daemon --stacktrace
+
+      - name: Sign APK
+        run: |
+          keytool -genkeypair -v -keystore bm64.jks -alias bm64 \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass bm64recomp -keypass bm64recomp \
+            -dname "CN=BM64 Recompiled, O=deivid22srk, C=BR"
+          BT_DIR=$(ls -d ${ANDROID_HOME}/build-tools/*/ | sort -V | tail -1)
+          ${BT_DIR}/zipalign -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk BM64Recompiled-aligned.apk
+          ${BT_DIR}/apksigner sign --ks bm64.jks --ks-pass pass:bm64recomp --key-pass pass:bm64recomp \
+            --out BM64Recompiled.apk BM64Recompiled-aligned.apk
+          ${BT_DIR}/apksigner verify BM64Recompiled.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BM64Recompiled-Android-arm64
+          path: BM64Recompiled.apk
+          if-no-files-found: error

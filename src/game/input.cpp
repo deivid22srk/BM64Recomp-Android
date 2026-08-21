@@ -7,6 +7,9 @@
 #include "zelda_config.h"
 #include "recomp_ui.h"
 #include "SDL.h"
+#ifdef __ANDROID__
+#include "../main/android_bridge.h"
+#endif
 #include "promptfont.h"
 #include "GamepadMotion.hpp"
 
@@ -102,6 +105,15 @@ bool should_override_keystate(SDL_Scancode key, SDL_Keymod mod) {
 
 bool sdl_event_filter(void* userdata, SDL_Event* event) {
     switch (event->type) {
+#ifdef __ANDROID__
+    case SDL_EventType::SDL_USEREVENT:
+        if (event->user.code == android_bridge::EVENT_CODE) {
+            android_bridge::process_events();
+            break;
+        }
+        queue_if_enabled(event);
+        break;
+#endif
     case SDL_EventType::SDL_KEYDOWN:
         {
             SDL_KeyboardEvent* keyevent = &event->key;

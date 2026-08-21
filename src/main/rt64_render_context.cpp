@@ -11,6 +11,16 @@
 #include "ultramodern/ultramodern.hpp"
 #include "ultramodern/config.hpp"
 
+#ifdef __ANDROID__
+#include <SDL.h>
+#include <SDL_syswm.h>
+// Undefine x11 macros that get included by SDL_syswm.h.
+#undef None
+#undef Status
+#undef Success
+#undef Always
+#endif
+
 #include "zelda_render.h"
 #include "recomp_ui.h"
 #include "concurrentqueue.h"
@@ -210,7 +220,20 @@ zelda64::renderer::RT64Context::RT64Context(uint8_t* rdram, ultramodern::rendere
     RT64::Application::Core appCore{};
 #if defined(_WIN32)
     appCore.window = window_handle.window;
-#elif defined(__linux__) || defined(__ANDROID__)
+#elif defined(__ANDROID__)
+    // Convert the SDL window into a native window handle, which is what the
+    // Vulkan backend (plume) expects on Android.
+    {
+        SDL_SysWMinfo wmInfo;
+        SDL_VERSION(&wmInfo.version);
+        if (SDL_GetWindowWMInfo(window_handle, &wmInfo) && wmInfo.subsystem == SDL_SYSWM_ANDROID) {
+            appCore.window = wmInfo.info.android.window;
+        }
+        else {
+            fprintf(stderr, "Failed to retrieve the native window from SDL\n");
+        }
+    }
+#elif defined(__linux__)
     appCore.window = window_handle;
 #elif defined(__APPLE__)
     appCore.window.window = window_handle.window;

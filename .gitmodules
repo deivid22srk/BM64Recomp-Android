@@ -21,4 +21,4 @@
 	url = https://github.com/rt64/rt64
 [submodule "lib/sf64"]
 	path = lib/sf64
-	url = https://github.com/sonicdcer/sf64.git
+	url = https://github.com/inspectredc/sf64.git

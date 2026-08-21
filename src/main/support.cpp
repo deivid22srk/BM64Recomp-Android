@@ -3,9 +3,20 @@
 #include "nfd.h"
 #include "RmlUi/Core.h"
 
+#ifdef __ANDROID__
+#include "android_bridge.h"
+#endif
+
 namespace zelda64 {
     // MARK: - Internal Helpers
     void perform_file_dialog_operation(const std::function<void(bool, const std::filesystem::path&)>& callback) {
+#ifdef __ANDROID__
+        // Route through the Android SAF file picker. The callback is invoked on
+        // the main thread once the user has picked a file (or cancelled).
+        android_request_file_pick([callback](bool success, const std::filesystem::path& path) {
+            callback(success, path);
+        });
+#else
         nfdnchar_t* native_path = nullptr;
         nfdresult_t result = NFD_OpenDialogN(&native_path, nullptr, 0, nullptr);
 
@@ -18,9 +29,14 @@ namespace zelda64 {
         }
 
         callback(success, path);
+#endif
     }
 
     void perform_file_dialog_operation_multiple(const std::function<void(bool, const std::list<std::filesystem::path>&)>& callback) {
+#ifdef __ANDROID__
+        // Multiple-selection dialogs are not supported on Android yet.
+        callback(false, {});
+#else
         const nfdpathset_t* native_paths = nullptr;
         nfdresult_t result = NFD_OpenDialogMultipleN(&native_paths, nullptr, 0, nullptr);
 
@@ -41,6 +57,7 @@ namespace zelda64 {
         }
 
         callback(success, paths);
+#endif
     }
 
     // MARK: - Public API
@@ -48,6 +65,8 @@ namespace zelda64 {
     std::filesystem::path get_program_path() {
 #if defined(__APPLE__)
         return get_bundle_resource_directory();
+#elif defined(__ANDROID__)
+        return SDL_AndroidGetInternalStoragePath();
 #elif defined(__linux__) && defined(RECOMP_FLATPAK)
         return "/app/bin";
 #else

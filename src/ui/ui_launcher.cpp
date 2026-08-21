@@ -4,7 +4,9 @@
 #include "librecomp/game.hpp"
 #include "ultramodern/ultramodern.hpp"
 #include "RmlUi/Core.h"
+#ifndef __ANDROID__
 #include "nfd.h"
+#endif
 #include <filesystem>
 
 static std::string version_string;
@@ -15,7 +17,9 @@ bool mm_rom_valid = false;
 extern std::vector<recomp::GameEntry> supported_games;
 
 void select_rom() {
+#ifndef __ANDROID__
     nfdnchar_t* native_path = nullptr;
+#endif
     zelda64::open_file_dialog([](bool success, const std::filesystem::path& path) {
         if (success) {
             recomp::RomValidationError rom_error = recomp::select_rom(path, supported_games[0].game_id);
@@ -23,6 +27,11 @@ void select_rom() {
                 case recomp::RomValidationError::Good:
                     mm_rom_valid = true;
                     model_handle.DirtyVariable("mm_rom_valid");
+#if defined(__ANDROID__)
+                    // Start the game right away on Android.
+                    recomp::start_game(supported_games[0].game_id);
+                    recompui::hide_all_contexts();
+#endif
                     break;
                 case recomp::RomValidationError::FailedToOpen:
                     recompui::message_box("Failed to open ROM file.");
@@ -64,6 +73,13 @@ public:
     }
     void load_document() override {
 		launcher_context = recompui::create_context(zelda64::get_asset_path("launcher.rml"));
+#if defined(__ANDROID__)
+        // Skip the launcher entirely if a valid ROM has already been provided.
+        if (recomp::is_rom_valid(supported_games[0].game_id)) {
+            recomp::start_game(supported_games[0].game_id);
+            recompui::hide_all_contexts();
+        }
+#endif
     }
     void register_events(recompui::UiEventListenerInstancer& listener) override {
         recompui::register_event(listener, "select_rom",

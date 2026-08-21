@@ -12,7 +12,9 @@
 
 #include "ultramodern/ultra64.h"
 #include "ultramodern/ultramodern.hpp"
+#if defined(_WIN32) || defined(__ANDROID__)
 #define SDL_MAIN_HANDLED
+#endif
 #ifdef _WIN32
 #include "SDL.h"
 #else
@@ -25,6 +27,12 @@
 #undef ControlMask
 #undef Success
 #undef Always
+#endif
+
+#if defined(__ANDROID__)
+// Redefine main to SDL_main for the Android JNI entry point.
+#undef SDL_MAIN_HANDLED
+#include "SDL_main.h"
 #endif
 
 #include "recomp_ui.h"
@@ -144,6 +152,17 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
     flags |= SDL_WINDOW_METAL;
 #elif defined(RT64_SDL_WINDOW_VULKAN)
     flags |= SDL_WINDOW_VULKAN;
+#elif defined(__ANDROID__)
+    // Fullscreen landscape window on Android. RT64 creates the Vulkan surface
+    // directly from the native window, so no SDL_WINDOW_VULKAN flag is needed.
+    SDL_DisplayMode display_mode;
+    if (SDL_GetDesktopDisplayMode(0, &display_mode) == 0) {
+        window = SDL_CreateWindow("Bomberman 64: Recompiled",
+            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            display_mode.w, display_mode.h,
+            flags | SDL_WINDOW_FULLSCREEN);
+        return ultramodern::renderer::WindowHandle{ window };
+    }
 #endif
 
     window = SDL_CreateWindow("Bomberman 64: Recompiled", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1600, 960,  flags);
@@ -700,7 +719,9 @@ int main(int argc, char** argv) {
 
     recomp::start(cfg);
 
+#ifndef __ANDROID__
     NFD_Quit();
+#endif
 
     if (preloaded) {
         release_preload(preload_context);
