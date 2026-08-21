@@ -1,19 +1,53 @@
 diff --git a/plume_vulkan.cpp b/plume_vulkan.cpp
-index 2800022..fe98b5b 100644
+index 2800022..ba8dccc 100644
 --- a/plume_vulkan.cpp
 +++ b/plume_vulkan.cpp
-@@ -10,6 +10,10 @@
+@@ -10,6 +10,11 @@
  
  #include "plume_vulkan.h"
  
 +#ifdef __ANDROID__
 +#include <android/log.h>
++#include <unistd.h>
 +#endif
 +
  #include <algorithm>
  #include <cmath>
  #include <climits>
-@@ -2324,22 +2328,81 @@ namespace plume {
+@@ -2162,6 +2167,32 @@ namespace plume {
+         VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
+         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCapabilities);
+ 
++#ifdef __ANDROID__
++        {
++            VkSurfaceCapabilitiesKHR& caps = surfaceCapabilities;
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "ctor: surface=%p window=%p thread=%ld caps: min=%u max=%u cur=%ux%u alpha=0x%X",
++                (void*)surface, (void*)desc.renderWindow, (long)gettid(),
++                caps.minImageCount, caps.maxImageCount, caps.currentExtent.width, caps.currentExtent.height,
++                caps.supportedCompositeAlpha);
++            if (caps.minImageCount == 0 || caps.maxImageCount == 0) {
++                // Surface is invalid at construction time. Retry for a while.
++                for (int attempt = 0; attempt < 200; ++attempt) {
++                    struct timespec ts = {};
++                    ts.tv_sec = 0;
++                    ts.tv_nsec = 50 * 1000 * 1000;
++                    nanosleep(&ts, nullptr);
++                    caps = {};
++                    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &caps);
++                    if (caps.minImageCount != 0 && caps.maxImageCount != 0 && caps.currentExtent.width != 0 && caps.currentExtent.height != 0) {
++                        __android_log_print(ANDROID_LOG_ERROR, "PLUME", "ctor: surface recovered after %d attempts", attempt + 1);
++                        break;
++                    }
++                }
++                surfaceCapabilities = caps;
++            }
++        }
++#endif
++
+         // Pick an alpha compositing mode
+         if (surfaceCapabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) {
+             pickedAlphaFlag = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+@@ -2324,22 +2355,82 @@ namespace plume {
          VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
          vkGetPhysicalDeviceSurfaceCapabilitiesKHR(commandQueue->device->physicalDevice, surface, &surfaceCapabilities);
  
@@ -22,7 +56,8 @@ index 2800022..fe98b5b 100644
 +        // native window has been (re)created or resized. Wait for the surface
 +        // to become valid instead of feeding invalid parameters to the driver.
 +        if (surfaceCapabilities.minImageCount == 0 || surfaceCapabilities.maxImageCount == 0) {
-+            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "resize: surface capabilities are empty; waiting for a valid surface");
++            __android_log_print(ANDROID_LOG_ERROR, "PLUME", "resize: surface=%p window=%p thread=%ld caps empty; waiting",
++                (void*)surface, (void*)desc.renderWindow, (long)gettid());
 +            constexpr int MaxAttempts = 200; // ~10 seconds at 50 ms per attempt.
 +            for (int attempt = 0; attempt < MaxAttempts; ++attempt) {
 +                struct timespec ts = {};
@@ -97,7 +132,7 @@ index 2800022..fe98b5b 100644
          VkResult res = vkCreateSwapchainKHR(commandQueue->device->vk, &createInfo, nullptr, &vk);
          if (res != VK_SUCCESS) {
              fprintf(stderr, "vkCreateSwapchainKHR failed with error code 0x%X.\n", res);
-@@ -4048,6 +4111,17 @@ namespace plume {
+@@ -4048,6 +4139,17 @@ namespace plume {
              fprintf(stderr, "vkCreateDevice failed with error code 0x%X.\n", res);
              return;
          }
