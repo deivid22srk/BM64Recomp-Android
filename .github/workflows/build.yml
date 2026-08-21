@@ -23,7 +23,7 @@ jobs:
 
       - name: Apply RT64 Android patch
         run: |
-          git apply android-patches/rt64-android.patch
+          git apply --directory=lib/rt64 android-patches/rt64-android.patch
           echo "RT64 patch applied"
 
       - name: Set up JDK 17
