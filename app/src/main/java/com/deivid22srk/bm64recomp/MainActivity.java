@@ -25,18 +25,24 @@ public class MainActivity extends SDLActivity {
     }
 
     // Extracts the game UI assets packed into the APK into the app's internal
-    // storage, which is where the native code expects them (<files>/assets).
+    // storage. APK assets live under "game/"; they are extracted to
+    // <files>/assets/, which is where the native code looks for them.
     private void extractAssets() {
         try {
-            File destRoot = getFilesDir();
             String[] entries = getAssets().list("game");
             if (entries == null || entries.length == 0) {
                 return;
             }
-            copyAssetDirectory("game", destRoot);
+            File assetsRoot = new File(getFilesDir(), "assets");
+            if (!assetsRoot.exists()) {
+                assetsRoot.mkdirs();
+            }
+            for (String child : entries) {
+                copyAssetPath("game/" + child, new File(assetsRoot, child));
+            }
 
             // Controller mappings live at the top level of the APK assets.
-            File db = new File(destRoot, "recompcontrollerdb.txt");
+            File db = new File(getFilesDir(), "recompcontrollerdb.txt");
             if (!db.exists()) {
                 copyAssetFile("recompcontrollerdb.txt", db);
             }
@@ -45,18 +51,17 @@ public class MainActivity extends SDLActivity {
         }
     }
 
-    private void copyAssetDirectory(String assetPath, File destDir) throws IOException {
+    private void copyAssetPath(String assetPath, File dest) throws IOException {
         String[] children = getAssets().list(assetPath);
-        File destDirAbs = new File(destDir, assetPath.substring(assetPath.lastIndexOf('/') + 1));
         if (children == null || children.length == 0) {
-            copyAssetFile(assetPath, destDirAbs);
+            copyAssetFile(assetPath, dest);
             return;
         }
-        if (!destDirAbs.exists()) {
-            destDirAbs.mkdirs();
+        if (!dest.exists()) {
+            dest.mkdirs();
         }
         for (String child : children) {
-            copyAssetDirectory(assetPath + "/" + child, destDirAbs);
+            copyAssetPath(assetPath + "/" + child, new File(dest, child));
         }
     }
 

@@ -112,9 +112,20 @@ jobs:
 
       - name: Collect native libraries for packaging
         run: |
+          NDK_DIR="$(ls -d ${ANDROID_HOME}/ndk/* | sort -V | tail -1)"
+          STRIP="${NDK_DIR}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
           mkdir -p app/src/main/jniLibs/arm64-v8a
-          find build-android -name "*.so" -exec cp -v {} app/src/main/jniLibs/arm64-v8a/ \;
+          find build-android -name "*.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \;
+          find app/src/main/jniLibs -name "*.so" -exec ${STRIP} --strip-unneeded {} \;
           ls -la app/src/main/jniLibs/arm64-v8a/
+
+      - name: Stage game assets for packaging
+        run: |
+          mkdir -p app/src/main/assets/game
+          cp -r assets/. app/src/main/assets/game/
+          rm -rf app/src/main/assets/game/scss
+          cp recompcontrollerdb.txt app/src/main/assets/
+          du -sh app/src/main/assets
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
