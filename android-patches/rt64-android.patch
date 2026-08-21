@@ -122,7 +122,7 @@ index 2fb01e5..3b892b0 100644
  add_subdirectory(src/tools/texture_hasher)
  add_subdirectory(src/tools/texture_packer)
 diff --git a/src/common/rt64_user_paths.cpp b/src/common/rt64_user_paths.cpp
-index f38d8eb..b1271f9 100644
+index f38d8eb..7d4063b 100644
 --- a/src/common/rt64_user_paths.cpp
 +++ b/src/common/rt64_user_paths.cpp
 @@ -7,6 +7,8 @@
@@ -130,7 +130,7 @@ index f38d8eb..b1271f9 100644
  #   include <unistd.h>
  #   include <pwd.h>
 +#elif defined(__ANDROID__)
-+#   include <SDL.h>
++#   include <SDL_system.h>
  #elif defined(_WIN32)
  #   include <Shlobj.h>
  #elif defined(__APPLE__)
