@@ -141,9 +141,18 @@ diff --git a/src/contrib/zstd b/src/contrib/zstd
 -Subproject commit 0ff651dd876823b99fa5c5f53292be28381aee9b
 +Subproject commit 0ff651dd876823b99fa5c5f53292be28381aee9b-dirty
 diff --git a/src/hle/rt64_application_window.cpp b/src/hle/rt64_application_window.cpp
-index 86ae197..50e712d 100755
+index 86ae197..c4d60ee 100755
 --- a/src/hle/rt64_application_window.cpp
 +++ b/src/hle/rt64_application_window.cpp
+@@ -11,7 +11,7 @@
+ #if defined(_WIN32)
+ #   include <Windows.h>
+ #   include <ShellScalingAPI.h>
+-#elif defined(__linux__)
++#elif defined(__linux__) && !defined(__ANDROID__)
+ #   define Status int
+ #   if !defined(RT64_SDL_WINDOW_VULKAN)
+ #      include <X11/extensions/Xrandr.h>
 @@ -104,7 +104,21 @@ namespace RT64 {
          bounds.width = rect.right - rect.left;
          bounds.height = rect.bottom - rect.top;
@@ -194,3 +203,12 @@ index 86ae197..50e712d 100755
          refreshRate = displayMode.refresh_rate;
  #   elif defined(__linux__)
          // Sourced from: https://stackoverflow.com/a/66865623
+@@ -343,6 +368,8 @@ namespace RT64 {
+         newWindowTop = rect.top;
+ #   elif defined(RT64_SDL_WINDOW_VULKAN)
+         SDL_GetWindowPosition(windowHandle, &newWindowLeft, &newWindowTop);
++#   elif defined(__ANDROID__)
++        // Native windows on Android cannot be queried for their position.
+ #   elif defined(__linux__)
+         XWindowAttributes attributes;
+         XGetWindowAttributes(windowHandle.display, windowHandle.window, &attributes);
