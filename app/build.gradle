@@ -26,6 +26,7 @@ android {
                           '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache',
                           '-DCMAKE_C_COMPILER_LAUNCHER=ccache'
                 cppFlags '-std=c++20'
+                targets 'BM64Recompiled'
             }
         }
     }
@@ -34,7 +35,6 @@ android {
         cmake {
             path file('../CMakeLists.txt')
             version '3.22.1'
-            targets 'BM64Recompiled'
         }
     }
 
