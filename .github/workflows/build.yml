@@ -69,6 +69,10 @@ jobs:
           ./RSPRecomp aspMain.toml
           make -C patches CC=clang LD=ld.lld
           ./N64Recomp patches.toml
+          # Pre-generate patches_bin.c with a host-built file_to_c (the APK build
+          # cross-compiles file_to_c for Android, so it cannot be run there).
+          g++ -O2 lib/rt64/src/tools/file_to_c/file_to_c.cpp -o file_to_c_host
+          ./file_to_c_host patches/patches.bin mm_patches_bin RecompiledPatches/patches_bin.c RecompiledPatches/patches_bin.h
 
       - name: Fetch Android build libraries (SDL2, FreeType)
         run: |
