@@ -73,6 +73,10 @@ jobs:
           # cross-compiles file_to_c for Android, so it cannot be run there).
           g++ -O2 lib/rt64/src/tools/file_to_c/file_to_c.cpp -o file_to_c_host
           ./file_to_c_host patches/patches.bin mm_patches_bin RecompiledPatches/patches_bin.c RecompiledPatches/patches_bin.h
+          # Ensure the generated files are strictly newer than their inputs,
+          # otherwise ninja considers them stale and tries to regenerate them
+          # with the cross-compiled (unusable) tool.
+          touch RecompiledPatches/patches_bin.c RecompiledPatches/patches_bin.h
 
       - name: Fetch Android build libraries (SDL2, FreeType)
         run: |
