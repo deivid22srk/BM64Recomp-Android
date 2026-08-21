@@ -13,7 +13,7 @@ namespace zelda64 {
 #ifdef __ANDROID__
         // Route through the Android SAF file picker. The callback is invoked on
         // the main thread once the user has picked a file (or cancelled).
-        android_request_file_pick([callback](bool success, const std::filesystem::path& path) {
+        android_bridge::request_file_pick([callback](bool success, const std::filesystem::path& path) {
             callback(success, path);
         });
 #else
