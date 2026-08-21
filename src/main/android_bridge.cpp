@@ -8,10 +8,6 @@
 #include <utility>
 
 namespace android_bridge {
-    // Custom SDL user event code used to marshal callbacks onto the main
-    // (SDL) thread. Chosen to avoid the axis codes used elsewhere.
-    constexpr Sint32 EVENT_CODE = 0x414E;
-
     namespace {
         std::mutex g_mutex;
         std::function<void(bool, const std::filesystem::path&)> g_pick_callback;
