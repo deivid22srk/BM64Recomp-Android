@@ -145,21 +145,25 @@ ultramodern::renderer::WindowHandle create_window(ultramodern::gfx_callbacks_t::
 #if defined(__APPLE__)
     flags |= SDL_WINDOW_METAL;
 #elif defined(RT64_SDL_WINDOW_VULKAN)
+    // Lets SDL know the app is Vulkan-only so it does not hook EGL into the
+    // native window (required for Android, where RT64 creates the surface
+    // through SDL_Vulkan_CreateSurface).
     flags |= SDL_WINDOW_VULKAN;
-#elif defined(__ANDROID__)
-    // Fullscreen landscape window on Android. RT64 creates the Vulkan surface
-    // directly from the native window, so no SDL_WINDOW_VULKAN flag is needed.
-    SDL_DisplayMode display_mode;
-    if (SDL_GetDesktopDisplayMode(0, &display_mode) == 0) {
-        window = SDL_CreateWindow("Bomberman 64: Recompiled",
-            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-            display_mode.w, display_mode.h,
-            flags | SDL_WINDOW_FULLSCREEN);
-        return ultramodern::renderer::WindowHandle{ window };
-    }
 #endif
 
-    window = SDL_CreateWindow("Bomberman 64: Recompiled", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1600, 960,  flags);
+    int window_width = 1600;
+    int window_height = 960;
+
+#if defined(__ANDROID__)
+    SDL_DisplayMode display_mode;
+    if (SDL_GetDesktopDisplayMode(0, &display_mode) == 0) {
+        window_width = display_mode.w;
+        window_height = display_mode.h;
+    }
+    flags |= SDL_WINDOW_FULLSCREEN;
+#endif
+
+    window = SDL_CreateWindow("Bomberman 64: Recompiled", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height,  flags);
 #if defined(__gnu_linux__)
     SetImageAsIcon("icons/512.png",window);
     if (ultramodern::renderer::get_graphics_config().wm_option == ultramodern::renderer::WindowMode::Fullscreen) { // TODO: Remove once RT64 gets native fullscreen support on Linux

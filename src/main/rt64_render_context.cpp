@@ -13,9 +13,7 @@
 
 #ifdef __ANDROID__
 #include <SDL.h>
-#include <SDL_syswm.h>
-#include <android/native_window.h>
-// Undefine x11 macros that get included by SDL_syswm.h.
+// Undefine x11 macros that can get included by SDL headers.
 #undef None
 #undef Status
 #undef Success
@@ -221,23 +219,9 @@ zelda64::renderer::RT64Context::RT64Context(uint8_t* rdram, ultramodern::rendere
     RT64::Application::Core appCore{};
 #if defined(_WIN32)
     appCore.window = window_handle.window;
-#elif defined(__ANDROID__)
-    // Convert the SDL window into a native window handle, which is what the
-    // Vulkan backend (plume) expects on Android.
-    {
-        SDL_SysWMinfo wmInfo;
-        SDL_VERSION(&wmInfo.version);
-        if (SDL_GetWindowWMInfo(window_handle, &wmInfo) && wmInfo.subsystem == SDL_SYSWM_ANDROID) {
-            appCore.window = wmInfo.info.android.window;
-            // Keep the native window alive even if SDL tears down and recreates
-            // its surface while the activity settles (orientation changes, etc).
-            ANativeWindow_acquire((ANativeWindow*)appCore.window);
-        }
-        else {
-            fprintf(stderr, "Failed to retrieve the native window from SDL\n");
-        }
-    }
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__ANDROID__)
+    // On Android with RT64_SDL_WINDOW_VULKAN, the window handle is the
+    // SDL_Window itself, same as desktop Linux.
     appCore.window = window_handle;
 #elif defined(__APPLE__)
     appCore.window.window = window_handle.window;
