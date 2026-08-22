@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 2fb01e5..d3c0b7a 100644
+index 2fb01e5..4c36743 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -1,5 +1,10 @@
@@ -24,7 +24,7 @@ index 2fb01e5..d3c0b7a 100644
  else()
      if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
          set (DXC "LD_LIBRARY_PATH=${PROJECT_SOURCE_DIR}/src/contrib/dxc/lib/x64" "${PROJECT_SOURCE_DIR}/src/contrib/dxc/bin/x64/dxc-linux")
-@@ -68,10 +77,12 @@ set(ZSTD_BUILD_SHARED OFF)
+@@ -68,11 +77,15 @@ set(ZSTD_BUILD_SHARED OFF)
  
  add_subdirectory(src/tools/file_to_c)
  add_subdirectory(src/contrib/re-spirv)
@@ -35,11 +35,15 @@ index 2fb01e5..d3c0b7a 100644
  add_subdirectory(src/contrib/zstd/build/cmake)
  
 -if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND RT64_SDL_WINDOW_VULKAN)
+-    set(PLUME_SDL_VULKAN_ENABLED TRUE)
 +if ((CMAKE_SYSTEM_NAME MATCHES "Linux" OR ANDROID) AND RT64_SDL_WINDOW_VULKAN)
-     set(PLUME_SDL_VULKAN_ENABLED TRUE)
++    # plume's cmake_dependent_option only enables this for Linux, so force the
++    # cache variable for Android builds.
++    set(PLUME_SDL_VULKAN_ENABLED TRUE CACHE BOOL "" FORCE)
  elseif (APPLE)
      set(PLUME_APPLE_RETINA_ENABLED OFF)
-@@ -115,7 +126,7 @@ function(build_shader_spirv_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
+ endif()
+@@ -115,7 +128,7 @@ function(build_shader_spirv_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
          COMMAND ${DXC} ${DXC_SPV_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.spv
          DEPENDS ${FILENAME})
      add_custom_command(OUTPUT ${OUTNAME}.spirv.c
@@ -48,7 +52,7 @@ index 2fb01e5..d3c0b7a 100644
          DEPENDS ${OUTNAME}.spv file_to_c
          BYPRODUCTS ${OUTNAME}.spirv.h)
      target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.spirv.c)
-@@ -126,7 +137,7 @@ function(build_shader_dxil_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
+@@ -126,7 +139,7 @@ function(build_shader_dxil_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
          COMMAND ${DXC} ${DXC_DXIL_OPTS} ${ARGN} ${FILENAME} /Fo ${OUTNAME}.dxil
          DEPENDS ${FILENAME})
      add_custom_command(OUTPUT ${OUTNAME}.dxil.c
@@ -57,7 +61,7 @@ index 2fb01e5..d3c0b7a 100644
          DEPENDS ${OUTNAME}.dxil file_to_c
          BYPRODUCTS ${OUTNAME}.dxil.h)
      target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.dxil.c)
-@@ -146,7 +157,7 @@ function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
+@@ -146,7 +159,7 @@ function(build_shader_msl_impl TARGETOBJ FILENAME TARGET_NAME OUTNAME)
              COMMAND xcrun -sdk macosx metallib ${OUTNAME}.ir -o ${OUTNAME}.metallib
              DEPENDS ${OUTNAME}.ir)
      add_custom_command(OUTPUT ${OUTNAME}.metal.c
@@ -66,7 +70,7 @@ index 2fb01e5..d3c0b7a 100644
              DEPENDS ${OUTNAME}.metallib file_to_c
              BYPRODUCTS ${OUTNAME}.metal.h)
      target_sources(${TARGETOBJ} PRIVATE ${OUTNAME}.metal.c)
-@@ -240,7 +251,7 @@ function(preprocess_shader TARGETOBJ SHADERNAME)
+@@ -240,7 +253,7 @@ function(preprocess_shader TARGETOBJ SHADERNAME)
      cmake_path(GET OUTNAME PARENT_PATH OUTPUT_DIR)
      preprocess(${FILENAME} ${OUTNAME}.rw ${DXC_COMMON_OPTS})
      add_custom_command(OUTPUT ${OUTNAME}.rw.c
@@ -75,7 +79,7 @@ index 2fb01e5..d3c0b7a 100644
          DEPENDS ${OUTNAME}.rw file_to_c
          BYPRODUCTS ${OUTNAME}.rw.h)
      file(MAKE_DIRECTORY ${OUTPUT_DIR})
-@@ -287,7 +298,9 @@ if (WIN32)
+@@ -287,7 +300,9 @@ if (WIN32)
      set(SDL2_LIBRARIES "SDL2" "SDL2main")
      link_directories("${PROJECT_SOURCE_DIR}/src/contrib/mupen64plus-win32-deps/SDL2-2.26.3/lib/x64")
  else()
@@ -86,7 +90,7 @@ index 2fb01e5..d3c0b7a 100644
  endif()
  
  message(STATUS "${SDL2_INCLUDE_DIRS} ${SDL2_LIBRARIES}")
-@@ -298,7 +311,7 @@ add_compile_definitions(
+@@ -298,7 +313,7 @@ add_compile_definitions(
      IMGUI_IMPL_VULKAN_NO_PROTOTYPES
  )
  
@@ -95,7 +99,7 @@ index 2fb01e5..d3c0b7a 100644
      add_compile_definitions("PLUME_SDL_VULKAN_ENABLED")
      add_compile_definitions("RT64_SDL_WINDOW_VULKAN")
  endif()
-@@ -412,7 +425,6 @@ set (SOURCES
+@@ -412,7 +427,6 @@ set (SOURCES
  )
  
  include_directories(
@@ -103,7 +107,7 @@ index 2fb01e5..d3c0b7a 100644
      "${PROJECT_SOURCE_DIR}/src"
      "${PROJECT_SOURCE_DIR}/src/contrib"
      "${PROJECT_SOURCE_DIR}/src/contrib/plume"
-@@ -422,6 +434,10 @@ include_directories(
+@@ -422,6 +436,10 @@ include_directories(
      "${PROJECT_SOURCE_DIR}/src/contrib/nativefiledialog-extended/src/include"
  )
  
@@ -114,7 +118,7 @@ index 2fb01e5..d3c0b7a 100644
  if (WIN32)
      # DXC only needs to be included during runtime for Windows.
      include_directories("${PROJECT_SOURCE_DIR}/src/contrib/dxc/inc")
-@@ -438,10 +454,18 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
+@@ -438,10 +456,18 @@ set_target_properties(rt64 PROPERTIES PREFIX "")
  
  # Add common libraries.
  target_link_libraries(rt64 re-spirv)
