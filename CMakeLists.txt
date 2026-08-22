@@ -408,8 +408,13 @@ if (ANDROID)
     set(THREADS_PREFER_PTHREAD_FLAG TRUE)
     find_package(Threads REQUIRED)
 
-    # Use the same SDL-managed Vulkan window path as desktop Linux.
-    target_compile_definitions(BM64Recompiled PRIVATE "RT64_SDL_WINDOW_VULKAN")
+    # Use the same SDL-managed Vulkan window path as desktop Linux. Both
+    # definitions must be visible to this target because plume's public
+    # headers change types based on them.
+    target_compile_definitions(BM64Recompiled PRIVATE
+        "RT64_SDL_WINDOW_VULKAN"
+        "PLUME_SDL_VULKAN_ENABLED"
+    )
     target_link_libraries(BM64Recompiled PRIVATE
         SDL2::SDL2
         Freetype::Freetype
